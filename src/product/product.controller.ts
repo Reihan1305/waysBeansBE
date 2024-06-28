@@ -16,12 +16,15 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from 'src/lib/auth/authguard';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Roles } from 'src/lib/auth/decorator/Role';
+import { Role } from '@prisma/client';
 
 @Controller('product')
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
   
   @UseGuards(JwtAuthGuard)
+  @Roles(Role.Seller)
   @Post()
   @UseInterceptors(FileInterceptor('imageProduct'))
   create(
@@ -43,6 +46,7 @@ export class ProductController {
     return this.productService.findOne(id);
   }
 
+  @Roles(Role.Seller)
   @Patch(':id')
   @UseInterceptors(FileInterceptor('imageProduct'))
   update(
@@ -53,6 +57,7 @@ export class ProductController {
     return this.productService.update(id, updateProductDto, imageProduct);
   }
 
+  @Roles(Role.Seller)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.productService.remove(id);

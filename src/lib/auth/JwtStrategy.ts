@@ -1,11 +1,13 @@
 // src/auth/jwt.strategy.ts
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
+import { Role } from '@prisma/client';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 export interface JwtPayload {
     email: string;
     id: string;
+    role:Role
 }
 
 @Injectable()
@@ -19,6 +21,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: JwtPayload) {
-        return { id: payload.id, email: payload.email };
+        return { id: payload.id, email: payload.email,role:payload.role };
     }
 }

@@ -9,26 +9,36 @@ import {
   Query,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { TransactionService } from './transaction.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { JwtAuthGuard } from 'src/lib/auth/authguard';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Roles } from 'src/lib/auth/decorator/Role';
+import { Role } from '@prisma/client';
+import { Cart } from 'src/cart/entities/cart.entity';
 
 @UseGuards(JwtAuthGuard)
 @Controller('transaction')
 export class TransactionController {
   constructor(private readonly transactionService: TransactionService) {}
 
+  @Roles(Role.Buyer)
   @Post(':CartId')
+  @UseInterceptors(FileInterceptor('paymentProof'))
   create(
     @Body() createTransactionDto: CreateTransactionDto,
     @Param('CartId') CartId: string,
     @Request() req,
+    @UploadedFile()paymentProof
+
   ) {
+    
     createTransactionDto.userId = req.user.id;
-    createTransactionDto.cartId = CartId;
-    return this.transactionService.create(createTransactionDto);
+    return this.transactionService.create(CartId,createTransactionDto,paymentProof);
   }
 
   @Get()
@@ -36,20 +46,24 @@ export class TransactionController {
     return this.transactionService.findAll()
   }
 
+  @Roles(Role.Buyer)
   @Get('user')
   findAllByUserId(@Request() req) {
     return this.transactionService.findAllByBuyerId(req.user.id);
   }
 
+  @Roles(Role.Seller)
   @Get('seller')
   findBySeller(@Request() req) {
     return this.transactionService.findAllBySellerId(req.user.id);
   }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.transactionService.findOne(id);
   }
 
+  @Roles(Role.Seller)
   @Patch(':id')
   update(
     @Param('id') id: string,

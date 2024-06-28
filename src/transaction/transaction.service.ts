@@ -3,50 +3,56 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { PrismaService } from 'src/lib/prisma/prisma.service';
 import { Status } from '@prisma/client';
+import { CloudinaryService } from 'src/lib/config/cloudinary/cloudinary.service';
 
 @Injectable()
 export class TransactionService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cloudinary: CloudinaryService,
+  ) {}
 
-  async create(createTransactionDto: CreateTransactionDto) {
+  async create(cartId:string,
+    createTransactionDto: CreateTransactionDto,
+    file: Express.Multer.File,
+  ) {
     try {
+      const fileUpload = async () => {
+        try {
+          const result = await this.cloudinary.uploadImage(file);
 
-      const findCart = await this.prisma.cart.findFirst({
-        where:{id:createTransactionDto.cartId},
-        include:{
-          product:true
+          return createTransactionDto.paymentProof = result.secure_url
+        } catch (error) {
+          console.log(error);
         }
-      })
+      };
 
-      const findProduct = await this.prisma.product.findFirst({
-        where: { id: findCart.product.id},
+      await Promise.all([fileUpload()]);
+      createTransactionDto.status = Status.wait;
+      
+      const findCart = await this.prisma.cart.findFirst({
+        where: { id:cartId },
+        include: {
+          product: true,
+        },
       });
 
-      if (!findProduct || findProduct.stock <= 0) {
+      if (!findCart.product || findCart.product.stock <= 0) {
         throw new HttpException('stock not available', HttpStatus.CONFLICT);
       }
+      
 
-      if (findProduct.stock - findCart.total < 0) {
+      if (findCart.product.stock - findCart.total <= 0) {
         throw new HttpException('stock not available', HttpStatus.CONFLICT);
       }
-
-      createTransactionDto.status = Status.wait;
-
       const transaction = await this.prisma.transaction.create({
         data: {
-          cartId:findCart.id,
-          address: createTransactionDto.Address,
-          email: createTransactionDto.email,
-          name: createTransactionDto.name,
-          phone: createTransactionDto.phone,
-          possCode: createTransactionDto.possCode,
-          status: createTransactionDto.status,
-          userId: createTransactionDto.userId,
+          ...createTransactionDto,
           total: findCart.total,
-          totalPrice:findCart.totalPrice,
+          totalPrice: findCart.totalPrice,
           productTransactions: {
             create: {
-              productId: findProduct.id,
+              productId: findCart.product.id,
             },
           },
         },
@@ -54,11 +60,12 @@ export class TransactionService {
           productTransactions: true,
         },
       });
-
       await this.prisma.product.update({
-        where: { id: findProduct.id },
-        data: { stock: findProduct.stock - transaction.total },
+        where: { id: findCart.product.id },
+        data: { stock: findCart.product.stock - transaction.total },
       });
+
+      await this.prisma.cart.delete({ where: { id: findCart.id } });
 
       return transaction;
     } catch (error) {
@@ -77,6 +84,7 @@ export class TransactionService {
             },
           },
         },
+        orderBy:{createdAt:"desc"}
       });
       return transactions;
     } catch (error) {
@@ -84,7 +92,7 @@ export class TransactionService {
     }
   }
 
-  async findAll(){
+  async findAll() {
     try {
       const transactions = await this.prisma.transaction.findMany({
         include: {
@@ -94,6 +102,8 @@ export class TransactionService {
             },
           },
         },
+        orderBy:{createdAt:"desc"}
+
       });
       return transactions;
     } catch (error) {
@@ -113,11 +123,11 @@ export class TransactionService {
             },
           },
         },
+        orderBy:{createdAt:"desc"},
         include: {
           productTransactions: {
             include: {
               product: true,
-              
             },
           },
         },
@@ -146,35 +156,33 @@ export class TransactionService {
     }
   }
 
-  async update(transactionId: string, updateTransactionDto: UpdateTransactionDto) {
+  async update(
+    transactionId: string,
+    updateTransactionDto: UpdateTransactionDto,
+  ) {
     const findProduct = await this.prisma.transaction.findFirst({
-      where:{id:transactionId},
-      include:{
-        productTransactions:{
-          include:{
-            product:true
-          }
-        }
-      }
-    })
-    if(updateTransactionDto.status ==="reject"){
+      where: { id: transactionId },
+      include: {
+        productTransactions: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+    if (updateTransactionDto.status === 'reject') {
       await this.prisma.product.update({
-        where:{id:findProduct.productTransactions.productId},
-        data:{stock:findProduct.productTransactions.product.stock+findProduct.total}
-      })
+        where: { id: findProduct.productTransactions.productId },
+        data: {
+          stock:
+            findProduct.productTransactions.product.stock + findProduct.total,
+        },
+      });
     }
     try {
       const transaction = await this.prisma.transaction.update({
         where: { id: transactionId },
-        data: {
-          address: updateTransactionDto.Address,
-          email: updateTransactionDto.email,
-          name: updateTransactionDto.name,
-          phone: updateTransactionDto.phone,
-          possCode: updateTransactionDto.possCode,
-          status: updateTransactionDto.status,
-          total: updateTransactionDto.totalOrder,
-        },
+        data: updateTransactionDto,
       });
       return transaction;
     } catch (error) {

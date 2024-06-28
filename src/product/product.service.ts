@@ -26,8 +26,6 @@ export class ProductService {
 
       const price = parseInt(createProductDto.price);
 
-      console.log(createProductDto);
-
       const product = await this.prisma.product.create({
         data: { ...createProductDto, stock: stock, price: price },
       });

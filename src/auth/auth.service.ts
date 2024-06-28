@@ -62,7 +62,6 @@ export class AuthService {
         role:findUser.role
       };
        
-      console.log(payload);
       
       return { token: this.jwtService.sign(payload),profile:payload };
     } catch (error) {
@@ -74,6 +73,9 @@ export class AuthService {
     try {
       const user = await this.prisma.user.findFirst({
         where: { id: userId },
+        include:{
+          cart:true
+        }
       });
 
       return user;
@@ -88,6 +90,23 @@ export class AuthService {
         where:{id:userId}
       })
 
+      if(findUser.photoProfile === null){
+        const uploadPhoto = async()=>{
+          try {
+            const upload = await this.cloudinary.uploadImage(file)
+            return data.photoProfile = upload.secure_url
+          } catch (error) {
+            console.log(error);
+            
+          }
+        }
+
+        await Promise.all([uploadPhoto()])
+        return await this.prisma.user.update({
+          where:{id:findUser.id},
+          data:data
+        })
+      }
       const deleteOldImage = async ()=>{
         try {
           return await this.cloudinary.deleteFile(findUser.photoProfile)

@@ -3,7 +3,6 @@ import { IsEmail, IsNotEmpty } from 'class-validator';
 
 export class CreateTransactionDto {
   userId: string;
-  cartId: string;
   @IsNotEmpty()
   name: string;
   @IsEmail()
@@ -14,7 +13,8 @@ export class CreateTransactionDto {
   @IsNotEmpty()
   possCode: string;
   @IsNotEmpty()
-  Address: string;
+  address: string;
   totalOrder: number;
   status: Status;
+  paymentProof:string
 }

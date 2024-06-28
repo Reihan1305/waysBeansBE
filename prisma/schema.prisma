@@ -39,14 +39,14 @@ model Transaction {
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   productTransactions ProductTransaction?
   name           String
-  cartId         String @unique
-  cart            Cart @relation(fields: [cartId],references: [id],onDelete: Cascade)
   email          String
   phone          String
   possCode       String
   address        String
+  paymentProof   String
   status         Status
   total          Int
+  createdAt DateTime @default(now())
   totalPrice Int
 }
 
@@ -61,13 +61,12 @@ model ProductTransaction {
 
 model Cart {
   id             String        @id @default(uuid())
-  userId         String
+  userId         String 
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions   Transaction?
-  productId   String 
+  productId   String @unique
   product   Product @relation(fields: [productId],references: [id])
-  total          Int
-  totalPrice     Int
+  total          Int @default(0)
+  totalPrice     Int @default(0)
 }
 
 enum Role {
